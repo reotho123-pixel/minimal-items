@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf8f5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="极简清单">
+<title>极简清单 · 物品与目标</title>
+<style>
+:root{
+  --bg:#faf8f5;--card:#ffffff;--ink:#2e2a25;--sub:#8d8578;--line:#ece5da;
+  --accent:#c2603e;--accent-soft:#f9ece6;--gold:#b98a2e;--gold-soft:#f7f0df;--ok:#6f8f5c;
+  --radius:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.55}
+.wrap{max-width:600px;margin:0 auto;padding:0 14px calc(40px + env(safe-area-inset-bottom))}
+header{padding:20px 4px 6px}
+h1{font-size:21px;margin:0;font-weight:700;letter-spacing:.5px}
+.stats{color:var(--sub);font-size:13px;margin-top:3px}
+.hint-line{font-size:12.5px;color:var(--sub);margin:2px 4px 8px}
+.tabs{display:flex;gap:6px;position:sticky;top:0;background:var(--bg);padding:10px 0 8px;z-index:5}
+.tabs button{flex:1;border:1px solid var(--line);background:var(--card);padding:9px 0;border-radius:999px;font-size:14px;color:var(--sub);cursor:pointer}
+.tabs button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+main>section{display:none}
+main>section.show{display:block}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 13px;font-size:13px;color:var(--sub);cursor:pointer}
+.chips button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.group-h{font-size:13px;color:var(--sub);margin:16px 4px 8px;display:flex;justify-content:space-between}
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 12px 10px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.item[data-status="pending"]{border-left:3px solid var(--accent)}
+.item[data-status="stored"]{border-left:3px solid var(--gold)}
+.item-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.item-name{font-size:15.5px;font-weight:600;background:none;border:none;padding:0;color:var(--ink);text-align:left;cursor:pointer;font-family:inherit}
+.chip{font-size:11px;color:var(--sub);background:#f4f0ea;border-radius:999px;padding:3px 8px;flex:none}
+.item-mid{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 8px;flex-wrap:wrap}
+.seg{display:flex}
+.seg button{font-size:12px;padding:4px 9px;border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;font-family:inherit}
+.seg button:first-child{border-radius:8px 0 0 8px}
+.seg button:last-child{border-radius:0 8px 8px 0}
+.seg button+button{border-left:none}
+.seg button.on.f-like{background:var(--gold-soft);border-color:var(--gold);color:var(--gold)}
+.seg button.on.f-neutral{background:#f0ede8;border-color:#c9c2b6;color:#6b655a}
+.seg button.on.f-dislike{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+select[data-act="status"]{border:1px solid var(--line);border-radius:8px;padding:5px 6px;font-size:12.5px;background:#fff;color:var(--ink);max-width:130px;font-family:inherit}
+.item-note{font-size:12.5px;color:var(--sub);background:#faf6f0;border-radius:8px;padding:6px 9px;margin-bottom:8px}
+.item-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px dashed var(--line);padding-top:9px;flex-wrap:wrap}
+.wear-txt{font-size:12px;color:var(--sub)}
+.btns{display:flex;gap:10px;align-items:center}
+.wear-btn{background:var(--accent-soft);color:var(--accent);border:none;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.del-btn{background:none;border:none;color:var(--sub);font-size:12.5px;cursor:pointer;padding:4px;font-family:inherit}
+.rename{width:100%;border:1px solid var(--accent);border-radius:8px;padding:4px 8px;font-size:15px;font-weight:600;font-family:inherit}
+.empty{color:var(--sub);text-align:center;padding:30px 0;font-size:14px}
+#add-form{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-top:16px}
+#add-name{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:14px;margin-bottom:8px;font-family:inherit}
+.add-row{display:flex;gap:8px}
+.add-row select{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13.5px;background:#fff;font-family:inherit}
+.add-row button{flex:none;background:var(--ink);color:#fff;border:none;border-radius:10px;padding:0 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.bar{height:8px;background:#efe9e0;border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:999px;transition:width .3s}
+.bar-txt{font-size:13px;color:var(--sub);margin-top:6px}
+.goal{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.check{width:26px;height:26px;border-radius:50%;border:2px solid #d8d0c2;background:#fff;color:#fff;font-size:15px;line-height:1;flex:none;cursor:pointer;padding:0}
+.goal.done .check{background:var(--ok);border-color:var(--ok)}
+.gtitle{font-weight:600;font-size:15px}
+.goal.done .gtitle{text-decoration:line-through;color:var(--sub)}
+.gdesc{font-size:13px;color:var(--sub);margin-top:3px}
+.g-body{flex:1;min-width:0}
+.gtitle,.gdesc{cursor:pointer}
+.goal .del-btn{flex:none}
+#goal-add{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-top:16px}
+#goal-add input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:14px;margin-bottom:8px;font-family:inherit}
+.add-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13.5px;font-family:inherit}
+.note{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.note:last-child{border-bottom:none}
+.note-date{flex:none;font-size:11.5px;color:var(--sub)}
+.note-text{flex:1;cursor:pointer;word-break:break-all}
+.note .del-btn{flex:none}
+#note-add{margin-top:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.card h3{margin:0 0 6px;font-size:14.5px}
+.card p.hint{font-size:13px;color:var(--sub);margin:4px 0 8px}
+.card ul{margin:6px 0 0;padding-left:18px;font-size:14px}
+.card li{margin:3px 0}
+.card.danger{border-left:3px solid var(--accent)}
+.card.danger h3{color:var(--accent)}
+.data-btns button{display:block;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px;margin-bottom:8px;font-size:14px;color:var(--ink);cursor:pointer;font-family:inherit}
+.data-btns button.warn{color:var(--accent);border-color:#eccdbf}
+.toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:rgba(46,42,37,.92);color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;z-index:50;max-width:80vw}
+.toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>极简清单</h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="items" class="on">物品清单</button>
+    <button data-tab="goals">极简目标</button>
+    <button data-tab="insight">复盘</button>
+  </nav>
+
+  <main>
+    <section id="tab-items" class="show">
+      <p class="hint-line">点名称可改名 · 点「今天穿了」累计穿着 · 右侧下拉改状态（在用/收纳中/待处理）</p>
+      <div class="chips" id="chips">
+        <button data-f="all" class="on">全部</button>
+        <button data-f="items">日常物品</button>
+        <button data-f="summer">夏装</button>
+        <button data-f="winter">冬装</button>
+        <button data-f="allseason">四季</button>
+        <button data-f="bag">鞋包</button>
+        <button data-f="stored">收纳中</button>
+        <button data-f="pending">待处理</button>
+      </div>
+      <div id="item-list"></div>
+      <form id="add-form">
+        <input id="add-name" placeholder="添加新物品，如：白色短袖" autocomplete="off">
+        <div class="add-row">
+          <select id="add-cat">
+            <option value="items">日常物品</option>
+            <option value="summer">夏装</option>
+            <option value="winter">冬装</option>
+            <option value="allseason">四季</option>
+            <option value="bag">鞋包</option>
+          </select>
+          <select id="add-feel">
+            <option value="neutral">一般</option>
+            <option value="like">喜欢</option>
+            <option value="dislike">不喜欢</option>
+          </select>
+          <button type="submit">添加</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="tab-goals">
+      <p class="hint-line">按你的习惯定制：不舍得用新的、喜欢的留着、不喜欢的反而常穿 —— 目标就是把这三条反过来。点圆圈打卡，点标题或说明可改，和清单一样能加能删。</p>
+      <div id="goal-progress" style="margin-bottom:12px"></div>
+      <div id="goal-list"></div>
+      <form id="goal-add">
+        <input id="goal-title" placeholder="新目标标题，如：睡前不刷购物软件" autocomplete="off">
+        <div class="add-row">
+          <input id="goal-desc" placeholder="补充说明（可不填）" autocomplete="off">
+          <button type="submit">添加目标</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="tab-insight">
+      <div id="insight-list"></div>
+      <div class="card">
+        <h3>我的复盘笔记</h3>
+        <p class="hint">上面的统计是自动算的；这里写给你自己：要退役什么、换什么、下季注意什么。点文字可改，可加可删。</p>
+        <div id="notes-list"></div>
+        <form id="note-add">
+          <div class="add-row">
+            <input id="note-text" placeholder="写一条，如：军绿长裤穿坏就退役" autocomplete="off">
+            <button type="submit">添加</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>数据管理</h3>
+        <p class="hint">数据保存在这台手机的浏览器里，不联网、不上传。换手机或清缓存前，先导出备份。</p>
+        <div class="data-btns">
+          <button data-data="export">导出备份（JSON 文件）</button>
+          <button data-data="import">导入备份</button>
+          <button data-data="season" class="warn">季末计数清零（开始新一季统计）</button>
+          <button data-data="reset" class="warn">恢复默认清单</button>
+        </div>
+        <input type="file" id="import-file" accept=".json,application/json" style="display:none">
+      </div>
+      <div class="card">
+        <h3>装进手机的小贴士</h3>
+        <ul>
+          <li>浏览器菜单里选「添加到主屏幕」，就能像 App 一样点开。</li>
+          <li>所有勾选和计数自动保存在本机浏览器，不用联网。</li>
+          <li>不要清理这个网页的浏览器数据，清了记录会没；重要节点先导出备份。</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LS_KEY='minimalism-app-v2';
+const CATS=[['items','日常物品'],['summer','夏装'],['winter','冬装'],['allseason','四季'],['bag','鞋包']];
+const CAT_LABEL=Object.fromEntries(CATS);
+const FEEL_LABEL={like:'喜欢',neutral:'一般',dislike:'不喜欢'};
+const STATUS_LABEL={active:'在用',stored:'收纳中',pending:'待处理'};
+
+const DEFAULT_GOALS=[
+  {id:'g1',title:'启用仪式：新东西 7 天内用起来',desc:'买回来 7 天内必须穿/用第一次。东西的价值在使用里，不在收纳里；"舍不得用"其实是浪费的开始。'},
+  {id:'g2',title:'喜欢的日常化',desc:'每周至少 2 天穿「喜欢」标签的衣服出门，稳定后加到 4 天。重要日子就是今天。'},
+  {id:'g3',title:'将就的不补',desc:'绿色短袖、军绿色长裤这些「一般」的退役后，不买"差不多就行"的替代款，只买穿上会开心的。'},
+  {id:'g4',title:'一进一出',desc:'每新增 1 件物品，就退役 1 件同类旧物，清单总数只减不增。'},
+  {id:'g5',title:'季末复盘',desc:'每季度最后一天打开「复盘」页：零穿着的进观察期，连续两季零穿着就退役；然后点"季末计数清零"。'},
+  {id:'g6',title:'每月一次"重要日"',desc:'每月挑一个普通周末，把收纳里的喜欢的衣服郑重穿出门一次，然后回这里打卡。'},
+  {id:'g7',title:'守住数量红线',desc:'上限参考：短袖含打底 6、长裤 3、外套 2、鞋 2、包箱 3。想超线，先退役再买。'}
+];
+
+function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function monthKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtDate(s){const p=s.split('-');return (+p[1])+'月'+(+p[2])+'日';}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function newItem(o){
+  return Object.assign({id:uid(),cat:'summer',feeling:'neutral',status:'active',wear:0,lastWorn:null,note:''},o);
+}
+function defaults(){
+  return {items:[
+    newItem({name:'卷发棒',cat:'items'}),
+    newItem({name:'充电宝',cat:'items'}),
+    newItem({name:'卡包',cat:'items'}),
+    newItem({name:'手表',cat:'items',feeling:'like'}),
+    newItem({name:'项链',cat:'items',feeling:'like',note:'哥哥送的，很有意义'}),
+    newItem({name:'QCY 无线耳机',cat:'items'}),
+    newItem({name:'徕卡剃须刀',cat:'items',feeling:'like'}),
+    newItem({name:'防晒霜',cat:'items'}),
+    newItem({name:'U 盘 ×2',cat:'items'}),
+    newItem({name:'护照',cat:'items'}),
+    newItem({name:'驾驶证',cat:'items'}),
+    newItem({name:'毕业证明',cat:'items'}),
+    newItem({name:'棕色短袖',cat:'summer',feeling:'like'}),
+    newItem({name:'白色短袖',cat:'summer'}),
+    newItem({name:'绿色短袖',cat:'summer',note:'常穿——退役后换成真正喜欢的'}),
+    newItem({name:'防晒衣',cat:'summer'}),
+    newItem({name:'泳装一套（衣裤帽镜）',cat:'summer'}),
+    newItem({name:'棕色笑脸短袖（冬打底）',cat:'winter'}),
+    newItem({name:'蓝色笑脸短袖（冬打底）',cat:'winter'}),
+    newItem({name:'秋衣秋裤 ①',cat:'winter'}),
+    newItem({name:'秋衣秋裤 ②',cat:'winter'}),
+    newItem({name:'冬天卫衣',cat:'winter'}),
+    newItem({name:'秋冬冲锋衣',cat:'winter'}),
+    newItem({name:'针织帽',cat:'winter'}),
+    newItem({name:'蓝色拼接长裤',cat:'allseason',feeling:'like'}),
+    newItem({name:'蓝色长裤',cat:'allseason'}),
+    newItem({name:'军绿色长裤',cat:'allseason'}),
+    newItem({name:'棕色挎包',cat:'bag',feeling:'like'}),
+    newItem({name:'行李箱',cat:'bag'}),
+    newItem({name:'运动鞋',cat:'bag'}),
+    newItem({name:'耐克鞋',cat:'bag',feeling:'like'})
+  ],goals:DEFAULT_GOALS,goal:{month:monthKey(),checks:{}},notes:[]};
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.items))return s;}
+  }catch(e){}
+  return defaults();
+}
+function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}}
+function migrate(){
+  state.items.forEach(it=>{it.wear=it.wear||0;it.lastWorn=it.lastWorn||null;it.note=it.note||'';if(!it.id)it.id=uid();});
+  if(!Array.isArray(state.goals)||!state.goals.length)state.goals=DEFAULT_GOALS;
+  if(!state.goal||typeof state.goal!=='object')state.goal={month:monthKey(),checks:{}};
+  if(state.goal.month!==monthKey())state.goal={month:monthKey(),checks:{}};
+  if(!Array.isArray(state.notes))state.notes=[];
+}
+
+let state=load();
+let currentTab='items';
+let currentFilter='all';
+
+const $=s=>document.querySelector(s);
+
+function updateStats(){
+  const n=state.items.length;
+  const c=v=>state.items.filter(i=>i.status===v).length;
+  $('#stats').textContent='共 '+n+' 件 · 在用 '+c('active')+' · 收纳 '+c('stored')+' · 待处理 '+c('pending');
+}
+function itemsToRender(){
+  return state.items.filter(it=>{
+    switch(currentFilter){
+      case 'all':return true;
+      case 'pending':return it.status==='pending';
+      case 'stored':return it.status==='stored';
+      default:return it.cat===currentFilter;
+    }
+  });
+}
+function itemCard(it){
+  const wearTxt=it.wear>0?('穿了 '+it.wear+' 次'+(it.lastWorn?' · 最近 '+fmtDate(it.lastWorn):'')):'还没记录';
+  return '<div class="item" data-id="'+it.id+'" data-status="'+it.status+'">'
+    +'<div class="item-top"><button class="item-name" data-act="rename">'+esc(it.name)+'</button><span class="chip">'+(CAT_LABEL[it.cat]||'')+'</span></div>'
+    +'<div class="item-mid"><div class="seg">'
+    +['like','neutral','dislike'].map(f=>'<button data-act="feel" data-val="'+f+'" class="'+(it.feeling===f?'on f-'+f:'')+'">'+FEEL_LABEL[f]+'</button>').join('')
+    +'</div><select data-act="status">'
+    +Object.entries(STATUS_LABEL).map(([v,l])=>'<option value="'+v+'"'+(it.status===v?' selected':'')+'>'+l+'</option>').join('')
+    +'</select></div>'
+    +(it.note?'<div class="item-note">'+esc(it.note)+'</div>':'')
+    +'<div class="item-bottom"><span class="wear-txt">'+wearTxt+'</span><span class="btns">'
+    +'<button class="wear-btn" data-act="wear">今天穿了 +1</button>'
+    +'<button class="del-btn" data-act="del">删除</button></span></div></div>';
+}
+function renderItems(){
+  const items=itemsToRender();
+  const list=$('#item-list');
+  if(!items.length){
+    list.innerHTML='<div class="empty">这里还没有物品，用下面的按钮添加。</div>';
+  }else{
+    let html='';
+    for(const [key,label] of CATS){
+      const group=items.filter(i=>i.cat===key);
+      if(!group.length)continue;
+      html+='<div class="group-h"><span>'+label+'</span><span>'+group.length+' 件</span></div>';
+      html+=group.map(itemCard).join('');
+    }
+    list.innerHTML=html;
+  }
+  document.querySelectorAll('#chips button').forEach(b=>b.classList.toggle('on',b.dataset.f===currentFilter));
+  updateStats();
+}
+function renderGoals(){
+  const done=state.goals.filter(g=>state.goal.checks[g.id]).length;
+  $('#goal-progress').innerHTML='<div class="bar"><i style="width:'+(state.goals.length?Math.round(done/state.goals.length*100):0)+'%"></i></div>'
+    +'<div class="bar-txt">本月达成 '+done+' / '+state.goals.length+'（每月 1 日自动重新开始）</div>';
+  $('#goal-list').innerHTML=state.goals.map(g=>
+    '<div class="goal '+(state.goal.checks[g.id]?'done':'')+'" data-id="'+g.id+'">'
+    +'<button class="check" data-act="goal-toggle">'+(state.goal.checks[g.id]?'✓':'')+'</button>'
+    +'<div class="g-body"><div class="gtitle" data-act="goal-rename">'+esc(g.title)+'</div><div class="gdesc" data-act="goal-desc">'+esc(g.desc)+'</div></div>'
+    +'<button class="del-btn" data-act="goal-del">删除</button></div>').join('');
+}
+function renderInsight(){
+  const names=a=>a.length?a.map(i=>'<li>'+esc(i.name)+(i.feeling==='like'?' ❤':'')+'</li>').join(''):'<li class="empty" style="padding:0;text-align:left">暂无</li>';
+  const dislikeActive=state.items.filter(i=>i.feeling!=='like'&&i.wear>0&&i.status==='active');
+  const stored=state.items.filter(i=>i.status==='stored');
+  const zeroWear=state.items.filter(i=>i.status==='active'&&i.wear===0&&['summer','winter','allseason','bag'].includes(i.cat));
+  const pending=state.items.filter(i=>i.status==='pending');
+  $('#insight-list').innerHTML=
+    '<div class="card danger"><h3>不是喜欢，却在常穿</h3><p class="hint">标着「一般」但穿了多次的，就是下一批换血对象。方案：不提前扔，穿到报废；同时把喜欢的按计划穿起来；报废后按目标「将就的不补」换血。</p><ul>'+names(dislikeActive)+'</ul></div>'
+    +'<div class="card"><h3>收起来，等"重要日子"的</h3><p class="hint">它们在等一个可能一直不来的日子。挑一件，这周末就穿出门。</p><ul>'+names(stored)+'</ul></div>'
+    +'<div class="card"><h3>本季零穿着（自上次清零）</h3><p class="hint">季末看这里：这些进入下一季观察期，连续两季零穿着就退役。</p><ul>'+names(zeroWear)+'</ul></div>'
+    +'<div class="card"><h3>待处理</h3><p class="hint">想不清楚扔不扔的，先放这里，给它们一个明确的"考虑区"，别让它们混在日常里。</p><ul>'+names(pending)+'</ul></div>';
+  renderNotes();
+}
+function renderNotes(){
+  const list=$('#notes-list');
+  if(!state.notes.length){list.innerHTML='<div class="empty" style="padding:8px 0;text-align:left">还没有笔记，用下面输入框写第一条。</div>';return;}
+  list.innerHTML=state.notes.map(n=>
+    '<div class="note" data-id="'+n.id+'"><span class="note-date">'+esc(n.date)+'</span><span class="note-text" data-act="note-edit">'+esc(n.text)+'</span><button class="del-btn" data-act="note-del">删除</button></div>').join('');
+}
+function renderCurrent(){
+  if(currentTab==='items')renderItems();
+  else if(currentTab==='goals')renderGoals();
+  else renderInsight();
+}
+function renderAll(){updateStats();renderCurrent();}
+
+let toastTimer;
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  currentTab=b.dataset.tab;
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('show',s.id==='tab-'+currentTab));
+  renderCurrent();
+}));
+
+$('#chips').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  currentFilter=b.dataset.f;renderItems();
+});
+
+$('#item-list').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const card=e.target.closest('.item');const it=state.items.find(x=>x.id===card.dataset.id);
+  if(!it)return;
+  const act=btn.dataset.act;
+  if(act==='wear'){it.wear++;it.lastWorn=todayStr();save();renderItems();toast('已记录：'+it.name);}
+  else if(act==='del'){if(confirm('删除「'+it.name+'」？')){state.items=state.items.filter(x=>x.id!==it.id);save();renderItems();toast('已删除');}}
+  else if(act==='feel'){it.feeling=btn.dataset.val;save();renderItems();}
+  else if(act==='rename'){
+    const input=document.createElement('input');
+    input.className='rename';input.value=it.name;
+    btn.replaceWith(input);input.focus();input.select();
+    let doneFlag=false;
+    const commit=()=>{if(doneFlag)return;doneFlag=true;const v=input.value.trim();if(v)it.name=v;save();renderItems();};
+    input.addEventListener('blur',commit);
+    input.addEventListener('keydown',ev=>{if(ev.key==='Enter')input.blur();});
+  }
+});
+$('#item-list').addEventListener('change',e=>{
+  if(!e.target.matches('select[data-act="status"]'))return;
+  const card=e.target.closest('.item');const it=state.items.find(x=>x.id===card.dataset.id);
+  if(!it)return;
+  it.status=e.target.value;save();renderItems();
+});
+
+$('#add-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const name=$('#add-name').value.trim();if(!name)return;
+  const cat=$('#add-cat').value,feel=$('#add-feel').value;
+  state.items.unshift(newItem({name,cat,feeling:feel}));
+  if(currentFilter!=='all'&&currentFilter!==cat)currentFilter=cat;
+  save();$('#add-name').value='';renderItems();toast('已添加：'+name);
+});
+
+$('#goal-list').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const id=e.target.closest('.goal').dataset.id;
+  const act=btn.dataset.act;
+  if(act==='goal-toggle'){
+    state.goal.checks[id]=!state.goal.checks[id];save();renderGoals();
+  }else if(act==='goal-del'){
+    const g=state.goals.find(x=>x.id===id);
+    if(g&&confirm('删除目标「'+g.title+'」？')){
+      state.goals=state.goals.filter(x=>x.id!==id);delete state.goal.checks[id];save();renderGoals();toast('已删除目标');
+    }
+  }else if(act==='goal-rename'||act==='goal-desc'){
+    const g=state.goals.find(x=>x.id===id);if(!g)return;
+    const input=document.createElement('input');input.className='rename';
+    input.value=act==='goal-rename'?g.title:g.desc;
+    btn.replaceWith(input);input.focus();input.select();
+    let doneFlag=false;
+    const commit=()=>{if(doneFlag)return;doneFlag=true;const v=input.value.trim();
+      if(v){if(act==='goal-rename')g.title=v;else g.desc=v;}
+      save();renderGoals();};
+    input.addEventListener('blur',commit);
+    input.addEventListener('keydown',ev=>{if(ev.key==='Enter')input.blur();});
+  }
+});
+$('#goal-add').addEventListener('submit',e=>{
+  e.preventDefault();
+  const t=$('#goal-title').value.trim();if(!t)return;
+  state.goals.push({id:uid(),title:t,desc:$('#goal-desc').value.trim()||'（点这里补充说明）'});
+  save();$('#goal-title').value='';$('#goal-desc').value='';
+  renderGoals();toast('已添加目标');
+});
+$('#note-add').addEventListener('submit',e=>{
+  e.preventDefault();
+  const t=$('#note-text').value.trim();if(!t)return;
+  state.notes.unshift({id:uid(),text:t,date:fmtDate(todayStr())});
+  save();$('#note-text').value='';
+  renderNotes();toast('已记录');
+});
+$('#notes-list').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const id=e.target.closest('.note').dataset.id;
+  if(btn.dataset.act==='note-del'){
+    if(confirm('删除这条笔记？')){
+      state.notes=state.notes.filter(x=>x.id!==id);save();renderNotes();toast('已删除');
+    }
+  }else if(btn.dataset.act==='note-edit'){
+    const n=state.notes.find(x=>x.id===id);if(!n)return;
+    const input=document.createElement('input');input.className='rename';input.value=n.text;
+    btn.replaceWith(input);input.focus();input.select();
+    let doneFlag=false;
+    const commit=()=>{if(doneFlag)return;doneFlag=true;const v=input.value.trim();if(v)n.text=v;save();renderNotes();};
+    input.addEventListener('blur',commit);
+    input.addEventListener('keydown',ev=>{if(ev.key==='Enter')input.blur();});
+  }
+});
+
+$('#insight-list').parentElement.addEventListener('click',e=>{
+  const b=e.target.closest('[data-data]');if(!b)return;
+  const act=b.dataset.data;
+  if(act==='export'){
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='极简清单备份-'+todayStr()+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    toast('已导出备份文件');
+  }else if(act==='import'){
+    $('#import-file').click();
+  }else if(act==='season'){
+    if(confirm('把所有物品的穿着计数清零，开始新一季统计？（建议每季度末做一次）')){
+      state.items.forEach(i=>{i.wear=0;i.lastWorn=null;});save();renderCurrent();toast('已清零，新一季开始记录');
+    }
+  }else if(act==='reset'){
+    if(confirm('恢复默认清单？当前所有记录会被覆盖（建议先导出备份）')){state=defaults();save();renderAll();toast('已恢复默认');}
+  }
+});
+$('#import-file').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const s=JSON.parse(r.result);
+      if(!s||!Array.isArray(s.items))throw new Error('bad');
+      state=s;migrate();save();renderAll();toast('导入成功');
+    }catch(err){toast('导入失败：文件格式不对');}
+  };
+  r.readAsText(f);e.target.value='';
+});
+
+migrate();save();renderAll();
+
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
+  navigator.serviceWorker.register('./sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
