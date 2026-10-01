@@ -94,6 +94,42 @@ select[data-act="status"]{border:1px solid var(--line);border-radius:8px;padding
 .data-btns button.warn{color:var(--accent);border-color:#eccdbf}
 .toast{position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:rgba(46,42,37,.92);color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;z-index:50;max-width:80vw}
 .toast.show{opacity:1;transform:translateX(-50%)}
+
+/* ===== 物品图片 ===== */
+.item-main{display:flex;gap:11px;align-items:flex-start}
+.item-thumb{flex:none;width:60px;height:60px;border-radius:11px;border:1px solid var(--line);background:#f4f0ea;overflow:hidden;position:relative;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center}
+.item-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.item-thumb .ph{font-size:10.5px;color:var(--sub);text-align:center;line-height:1.25;padding:0 4px}
+.item-thumb::after{content:'';position:absolute;inset:0;border-radius:11px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.03)}
+.item-thumb:active{opacity:.75}
+.item-info{flex:1;min-width:0}
+.photo-btns{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.photo-btn{background:#f4f0ea;color:var(--sub);border:none;border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit}
+.photo-btn.pick{background:var(--gold-soft);color:var(--gold);font-weight:600}
+.photo-btn.rm{background:none;color:var(--accent);padding:5px 7px}
+
+/* 大图预览 */
+.viewer{position:fixed;inset:0;background:rgba(28,25,22,.93);z-index:80;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:22px}
+.viewer.show{display:flex}
+.viewer img{max-width:100%;max-height:76vh;border-radius:12px;object-fit:contain}
+.viewer-name{color:#fff;font-size:14px;opacity:.9;text-align:center}
+.viewer-btns{display:flex;gap:12px}
+.viewer-btns button{border:none;border-radius:999px;padding:9px 20px;font-size:14px;cursor:pointer;font-family:inherit}
+.viewer-btns .v-replace{background:#fff;color:#2e2a25;font-weight:600}
+.viewer-btns .v-del{background:rgba(255,255,255,.16);color:#fff}
+.viewer-btns .v-close{background:var(--accent);color:#fff;font-weight:600}
+
+/* 复盘卡片可编辑 */
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card-h h3{margin:0;font-size:14.5px}
+.card-h .card-tools{display:flex;gap:10px;flex:none}
+.card-tools button{background:none;border:none;color:var(--sub);font-size:12.5px;cursor:pointer;padding:2px;font-family:inherit}
+.card-tools button.rm{color:var(--accent)}
+.card ul li{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card ul li .li-del{background:none;border:none;color:var(--sub);font-size:12px;cursor:pointer;padding:2px 4px;flex:none;font-family:inherit}
+.storage-note{font-size:12px;color:var(--sub);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.bar2{height:6px;background:#efe9e0;border-radius:999px;overflow:hidden;margin-top:5px}
+.bar2 i{display:block;height:100%;background:var(--gold);border-radius:999px}
 </style>
 </head>
 <body>
@@ -171,7 +207,8 @@ select[data-act="status"]{border:1px solid var(--line);border-radius:8px;padding
       </div>
       <div class="card">
         <h3>数据管理</h3>
-        <p class="hint">数据保存在这台手机的浏览器里，不联网、不上传。换手机或清缓存前，先导出备份。</p>
+        <p class="hint">数据保存在这台手机的浏览器里，不联网、不上传。换手机或清缓存前，先导出备份（图片也一并导出）。</p>
+        <div class="storage-note" id="storage-note"></div>
         <div class="data-btns">
           <button data-data="export">导出备份（JSON 文件）</button>
           <button data-data="import">导入备份</button>
@@ -192,6 +229,15 @@ select[data-act="status"]{border:1px solid var(--line);border-radius:8px;padding
   </main>
 </div>
 <div class="toast" id="toast"></div>
+<div class="viewer" id="viewer">
+  <img id="viewer-img" alt="">
+  <div class="viewer-name" id="viewer-name"></div>
+  <div class="viewer-btns">
+    <button class="v-replace" data-v="replace">换一张</button>
+    <button class="v-del" data-v="del">删除图片</button>
+    <button class="v-close" data-v="close">关闭</button>
+  </div>
+</div>
 
 <script>
 const LS_KEY='minimalism-app-v2';
@@ -199,6 +245,15 @@ const CATS=[['items','日常物品'],['summer','夏装'],['winter','冬装'],['a
 const CAT_LABEL=Object.fromEntries(CATS);
 const FEEL_LABEL={like:'喜欢',neutral:'一般',dislike:'不喜欢'};
 const STATUS_LABEL={active:'在用',stored:'收纳中',pending:'待处理'};
+
+// 复盘页四张自动统计卡（标题/说明可改，条目可手动移除）
+const INSIGHT_DEF={
+  dislike:{title:'不是喜欢，却在常穿',hint:'标着「一般」但穿了多次的，就是下一批换血对象。方案：不提前扔，穿到报废；同时把喜欢的按计划穿起来；报废后按目标「将就不补」换血。'},
+  stored:{title:'收起来，等「重要日子」的',hint:'它们在等一个可能一直不来的日子。挑一件，这周末就穿出门。'},
+  zero:{title:'本季零穿着（自上次清零）',hint:'季末看这里：这些进入下一季观察期，连续两季零穿着就退役。'},
+  pending:{title:'待处理',hint:'想不清楚扔不扔的，先放这里，给它们一个明确的「考虑区」，别让它们混在日常里。'}
+};
+const INSIGHT_KEYS=['dislike','stored','zero','pending'];
 
 const DEFAULT_GOALS=[
   {id:'g1',title:'启用仪式：新东西 7 天内用起来',desc:'买回来 7 天内必须穿/用第一次。东西的价值在使用里，不在收纳里；"舍不得用"其实是浪费的开始。'},
@@ -263,18 +318,125 @@ function load(){
 }
 function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}}
 function migrate(){
-  state.items.forEach(it=>{it.wear=it.wear||0;it.lastWorn=it.lastWorn||null;it.note=it.note||'';if(!it.id)it.id=uid();});
+  state.items.forEach(it=>{it.wear=it.wear||0;it.lastWorn=it.lastWorn||null;it.note=it.note||'';if(!it.id)it.id=uid();if(!('photo' in it))it.photo=null;});
   if(!Array.isArray(state.goals)||!state.goals.length)state.goals=DEFAULT_GOALS;
   if(!state.goal||typeof state.goal!=='object')state.goal={month:monthKey(),checks:{}};
   if(state.goal.month!==monthKey())state.goal={month:monthKey(),checks:{}};
   if(!Array.isArray(state.notes))state.notes=[];
+  if(!state.insight||typeof state.insight!=='object')state.insight=DEFAULT_INSIGHT();
+  if(!state.insight.titles||typeof state.insight.titles!=='object')state.insight.titles={};
+  if(!state.insight.hints||typeof state.insight.hints!=='object')state.insight.hints={};
+  if(!state.insight.hidden||typeof state.insight.hidden!=='object')state.insight.hidden={};
+  INSIGHT_KEYS.forEach(k=>{
+    if(typeof state.insight.titles[k]!=='string')state.insight.titles[k]=INSIGHT_DEF[k].title;
+    if(typeof state.insight.hints[k]!=='string')state.insight.hints[k]=INSIGHT_DEF[k].hint;
+    if(!Array.isArray(state.insight.hidden[k]))state.insight.hidden[k]=[];
+  });
+}
+function DEFAULT_INSIGHT(){
+  const t={},h={},hid={};
+  INSIGHT_KEYS.forEach(k=>{t[k]=INSIGHT_DEF[k].title;h[k]=INSIGHT_DEF[k].hint;hid[k]=[];});
+  return {titles:t,hints:h,hidden:hid};
 }
 
 let state=load();
 let currentTab='items';
 let currentFilter='all';
+let currentPhotoId=null;   // 当前正在选图的物品 id
 
 const $=s=>document.querySelector(s);
+
+/* ===== 图片：压缩后存本机 ===== */
+const PHOTO_MAX=760;      // 长边最大像素
+const PHOTO_QUALITY=0.72; // JPEG 质量
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const rawUrl=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){URL.revokeObjectURL(rawUrl);reject(new Error('bad image'));return;}
+        const scale=Math.min(1,PHOTO_MAX/Math.max(w,h));
+        const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+        const cv=document.createElement('canvas');
+        cv.width=cw; cv.height=ch;
+        const ctx=cv.getContext('2d');
+        ctx.fillStyle='#fff'; ctx.fillRect(0,0,cw,ch);
+        ctx.drawImage(img,0,0,cw,ch);
+        URL.revokeObjectURL(rawUrl);
+        resolve(cv.toDataURL('image/jpeg',PHOTO_QUALITY));
+      }catch(e){URL.revokeObjectURL(rawUrl);reject(e);}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(rawUrl);reject(new Error('load fail'));};
+    img.src=rawUrl;
+  });
+}
+function pickPhoto(itemId){
+  currentPhotoId=itemId;
+  let inp=document.getElementById('photo-file');
+  if(!inp){
+    inp=document.createElement('input');
+    inp.type='file'; inp.id='photo-file';
+    inp.accept='image/*'; inp.style.display='none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change',onPhotoChosen);
+  }
+  inp.value='';
+  inp.click();
+}
+async function onPhotoChosen(e){
+  const f=e.target.files&&e.target.files[0];
+  e.target.value='';
+  const id=currentPhotoId;
+  if(!f||!id)return;
+  toast('正在处理图片…');
+  try{
+    const dataUrl=await compressImage(f);
+    const it=state.items.find(x=>x.id===id);
+    if(!it){toast('物品已不存在');return;}
+    const prev=it.photo||null;
+    it.photo=dataUrl;
+    try{
+      save();
+    }catch(err){
+      it.photo=prev;                       // 存不下就回滚，避免状态与存储不一致
+      toast('存不下了：手机存储空间不足，先删掉几张图片再试');
+      return;
+    }
+    closeViewer();
+    renderItems();
+    toast('图片已保存到本机');
+  }catch(err){
+    toast('图片处理失败，换一张试试');
+  }
+}
+function removePhoto(id,needConfirm){
+  const it=state.items.find(x=>x.id===id);
+  if(!it||!it.photo)return;
+  if(needConfirm&&!confirm('删除「'+it.name+'」的图片？'))return;
+  it.photo=null; save(); closeViewer(); renderItems(); toast('图片已删除');
+}
+function openViewer(id){
+  const it=state.items.find(x=>x.id===id);
+  if(!it||!it.photo)return;
+  const v=$('#viewer');
+  $('#viewer-img').src=it.photo;
+  $('#viewer-name').textContent=it.name;
+  v.dataset.id=id;
+  v.classList.add('show');
+}
+function closeViewer(){$('#viewer').classList.remove('show');$('#viewer-img').src='';}
+function fmtBytes(n){
+  if(n<1024)return n+' B';
+  if(n<1024*1024)return (n/1024).toFixed(0)+' KB';
+  return (n/1024/1024).toFixed(1)+' MB';
+}
+function photoStorageInfo(){
+  let bytes=0,n=0;
+  state.items.forEach(it=>{if(it.photo){bytes+=it.photo.length*0.75;n++;}});
+  return {bytes:Math.round(bytes),n};
+}
 
 function updateStats(){
   const n=state.items.length;
@@ -293,8 +455,16 @@ function itemsToRender(){
 }
 function itemCard(it){
   const wearTxt=it.wear>0?('穿了 '+it.wear+' 次'+(it.lastWorn?' · 最近 '+fmtDate(it.lastWorn):'')):'还没记录';
+  const thumb=it.photo
+    ?'<button class="item-thumb" data-act="viewphoto" title="点击看大图"><img src="'+it.photo+'" alt=""></button>'
+    :'<button class="item-thumb" data-act="pickphoto" title="点击添加图片"><span class="ph">＋<br>图片</span></button>';
+  const photoBtns=it.photo
+    ?'<div class="photo-btns"><button class="photo-btn" data-act="pickphoto">换图</button><button class="photo-btn rm" data-act="rmphoto">删除图片</button></div>'
+    :'<div class="photo-btns"><button class="photo-btn pick" data-act="pickphoto">上传图片</button></div>';
   return '<div class="item" data-id="'+it.id+'" data-status="'+it.status+'">'
-    +'<div class="item-top"><button class="item-name" data-act="rename">'+esc(it.name)+'</button><span class="chip">'+(CAT_LABEL[it.cat]||'')+'</span></div>'
+    +'<div class="item-main">'+thumb
+    +'<div class="item-info"><div class="item-top"><button class="item-name" data-act="rename">'+esc(it.name)+'</button><span class="chip">'+(CAT_LABEL[it.cat]||'')+'</span></div>'
+    +photoBtns+'</div></div>'
     +'<div class="item-mid"><div class="seg">'
     +['like','neutral','dislike'].map(f=>'<button data-act="feel" data-val="'+f+'" class="'+(it.feeling===f?'on f-'+f:'')+'">'+FEEL_LABEL[f]+'</button>').join('')
     +'</div><select data-act="status">'
@@ -333,18 +503,50 @@ function renderGoals(){
     +'<div class="g-body"><div class="gtitle" data-act="goal-rename">'+esc(g.title)+'</div><div class="gdesc" data-act="goal-desc">'+esc(g.desc)+'</div></div>'
     +'<button class="del-btn" data-act="goal-del">删除</button></div>').join('');
 }
+function insightGroups(){
+  return {
+    dislike:state.items.filter(i=>i.feeling!=='like'&&i.wear>0&&i.status==='active'),
+    stored:state.items.filter(i=>i.status==='stored'),
+    zero:state.items.filter(i=>i.status==='active'&&i.wear===0&&['summer','winter','allseason','bag'].includes(i.cat)),
+    pending:state.items.filter(i=>i.status==='pending')
+  };
+}
 function renderInsight(){
-  const names=a=>a.length?a.map(i=>'<li>'+esc(i.name)+(i.feeling==='like'?' ❤':'')+'</li>').join(''):'<li class="empty" style="padding:0;text-align:left">暂无</li>';
-  const dislikeActive=state.items.filter(i=>i.feeling!=='like'&&i.wear>0&&i.status==='active');
-  const stored=state.items.filter(i=>i.status==='stored');
-  const zeroWear=state.items.filter(i=>i.status==='active'&&i.wear===0&&['summer','winter','allseason','bag'].includes(i.cat));
-  const pending=state.items.filter(i=>i.status==='pending');
-  $('#insight-list').innerHTML=
-    '<div class="card danger"><h3>不是喜欢，却在常穿</h3><p class="hint">标着「一般」但穿了多次的，就是下一批换血对象。方案：不提前扔，穿到报废；同时把喜欢的按计划穿起来；报废后按目标「将就的不补」换血。</p><ul>'+names(dislikeActive)+'</ul></div>'
-    +'<div class="card"><h3>收起来，等"重要日子"的</h3><p class="hint">它们在等一个可能一直不来的日子。挑一件，这周末就穿出门。</p><ul>'+names(stored)+'</ul></div>'
-    +'<div class="card"><h3>本季零穿着（自上次清零）</h3><p class="hint">季末看这里：这些进入下一季观察期，连续两季零穿着就退役。</p><ul>'+names(zeroWear)+'</ul></div>'
-    +'<div class="card"><h3>待处理</h3><p class="hint">想不清楚扔不扔的，先放这里，给它们一个明确的"考虑区"，别让它们混在日常里。</p><ul>'+names(pending)+'</ul></div>';
+  const groups=insightGroups();
+  const ins=state.insight;
+  let html='';
+  for(const k of INSIGHT_KEYS){
+    const hidden=ins.hidden[k]||[];
+    const list=(groups[k]||[]).filter(i=>!hidden.includes(i.id));
+    const danger=(k==='dislike')?' danger':'';
+    const body=list.length
+      ? '<ul>'+list.map(i=>
+          '<li><span>'+esc(i.name)+(i.feeling==='like'?' ❤':'')+'</span>'
+          +'<button class="li-del" data-act="ins-hide" data-key="'+k+'" data-id="'+i.id+'">移出本组</button></li>'
+        ).join('')+'</ul>'
+      : '<ul><li class="empty" style="padding:0;text-align:left;display:block">暂无</li></ul>';
+    const hiddenCount=(hidden.length)?'<p class="hint" style="margin-top:6px">已从本组隐藏 '+hidden.length+' 项，点「重置」恢复</p>':'';
+    html+='<div class="card'+danger+'" data-key="'+k+'">'
+      +'<div class="card-h"><h3 data-act="ins-title" data-key="'+k+'">'+esc(ins.titles[k])+'</h3>'
+      +'<div class="card-tools">'
+      +'<button data-act="ins-reset" data-key="'+k+'">重置</button>'
+      +'</div></div>'
+      +'<p class="hint" data-act="ins-hint" data-key="'+k+'">'+esc(ins.hints[k])+'</p>'
+      +body+hiddenCount+'</div>';
+  }
+  $('#insight-list').innerHTML=html;
   renderNotes();
+  renderStorageNote();
+}
+function renderStorageNote(){
+  const el=$('#storage-note');
+  if(!el)return;
+  const info=photoStorageInfo();
+  const LIMIT=4.5*1024*1024;   // 参考上限，多数手机约 5MB
+  const pct=Math.min(100,Math.round(info.bytes/LIMIT*100));
+  el.innerHTML='本机已存 '+info.n+' 张图片，约占 '+fmtBytes(info.bytes)
+    +'<div class="bar2"><i style="width:'+pct+'%"></i></div>'
+    +'<div style="margin-top:5px">数据存在这台手机的浏览器里，不联网、不上传。换手机或清缓存前，先导出备份（含图片）。</div>';
 }
 function renderNotes(){
   const list=$('#notes-list');
@@ -385,6 +587,9 @@ $('#item-list').addEventListener('click',e=>{
   if(act==='wear'){it.wear++;it.lastWorn=todayStr();save();renderItems();toast('已记录：'+it.name);}
   else if(act==='del'){if(confirm('删除「'+it.name+'」？')){state.items=state.items.filter(x=>x.id!==it.id);save();renderItems();toast('已删除');}}
   else if(act==='feel'){it.feeling=btn.dataset.val;save();renderItems();}
+  else if(act==='pickphoto'){pickPhoto(it.id);}
+  else if(act==='viewphoto'){openViewer(it.id);}
+  else if(act==='rmphoto'){removePhoto(it.id,true);}
   else if(act==='rename'){
     const input=document.createElement('input');
     input.className='rename';input.value=it.name;
@@ -467,6 +672,36 @@ $('#notes-list').addEventListener('click',e=>{
   }
 });
 
+$('#insight-list').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const act=btn.dataset.act;
+  const key=btn.dataset.key;
+  if(act==='ins-hide'){
+    const id=btn.dataset.id;
+    const arr=state.insight.hidden[key];
+    if(!arr.includes(id)){arr.push(id);save();renderInsight();toast('已移出本组（物品本身没删）');}
+  }else if(act==='ins-reset'){
+    state.insight.hidden[key]=[];
+    state.insight.titles[key]=INSIGHT_DEF[key].title;
+    state.insight.hints[key]=INSIGHT_DEF[key].hint;
+    save();renderInsight();toast('已重置这张卡');
+  }else if(act==='ins-title'||act==='ins-hint'){
+    const isTitle=(act==='ins-title');
+    const input=document.createElement('input');
+    input.className='rename';input.value=isTitle?state.insight.titles[key]:state.insight.hints[key];
+    btn.replaceWith(input);input.focus();input.select();
+    let doneFlag=false;
+    const commit=()=>{
+      if(doneFlag)return;doneFlag=true;
+      const v=input.value.trim();
+      if(isTitle){if(v)state.insight.titles[key]=v;}
+      else{state.insight.hints[key]=v;}
+      save();renderInsight();
+    };
+    input.addEventListener('blur',commit);
+    input.addEventListener('keydown',ev=>{if(ev.key==='Enter')input.blur();});
+  }
+});
 $('#insight-list').parentElement.addEventListener('click',e=>{
   const b=e.target.closest('[data-data]');if(!b)return;
   const act=b.dataset.data;
@@ -499,6 +734,20 @@ $('#import-file').addEventListener('change',e=>{
   };
   r.readAsText(f);e.target.value='';
 });
+
+$('#viewer').addEventListener('click',e=>{
+  const b=e.target.closest('[data-v]');
+  const id=$('#viewer').dataset.id;
+  if(b){
+    const v=b.dataset.v;
+    if(v==='close')closeViewer();
+    else if(v==='del')removePhoto(id,true);
+    else if(v==='replace')pickPhoto(id);
+    return;
+  }
+  if(e.target.id==='viewer')closeViewer();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeViewer();});
 
 migrate();save();renderAll();
 
